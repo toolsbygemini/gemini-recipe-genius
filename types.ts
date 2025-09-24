@@ -1,4 +1,9 @@
 
+export interface Source {
+  uri: string;
+  title: string;
+}
+
 export interface Recipe {
   recipeName: string;
   description: string;
@@ -6,5 +11,5 @@ export interface Recipe {
   instructions: string[];
   cookingTime: string; // e.g., "Approx. 45 minutes"
   chefTips: string[];
-  imageUrl?: string;
+  sources?: Source[];
 }

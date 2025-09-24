@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
 import { Recipe } from '../types';
-import { CameraIcon } from './icons/CameraIcon';
 import { ClipboardIcon } from './icons/ClipboardIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { LightBulbIcon } from './icons/LightBulbIcon';
+import { GlobeIcon } from './icons/GlobeIcon';
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -49,22 +49,6 @@ ${tipsText}
 
   return (
     <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
-      <div className="aspect-w-16 aspect-h-9 w-full bg-gray-200 dark:bg-gray-700">
-        {!recipe.imageUrl ? (
-          <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 p-4 text-center">
-             <CameraIcon className="w-12 h-12 mb-2 animate-pulse text-emerald-500" />
-            <p className="text-lg font-medium">Plating your dish...</p>
-            <p className="text-sm">Generating a delicious image.</p>
-          </div>
-        ) : (
-          <img 
-            src={recipe.imageUrl} 
-            alt={recipe.recipeName} 
-            className="w-full h-full object-cover animate-fade-in"
-          />
-        )}
-      </div>
-
       <div className="p-6 md:p-8">
         <div className="flex justify-between items-start gap-4 mb-2">
             <div>
@@ -141,6 +125,33 @@ ${tipsText}
                 ))}
             </ul>
         </div>
+
+        {recipe.sources && recipe.sources.length > 0 && (
+          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+             <h3 className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 pb-2 mb-4 flex items-center gap-3">
+                <GlobeIcon className="w-7 h-7" />
+                Sources from the Web
+            </h3>
+            <ul className="space-y-2 text-sm">
+                {recipe.sources.map((source, index) => (
+                  source.uri && (
+                    <li key={index} className="flex items-center gap-2 truncate">
+                      <span className="text-gray-400 dark:text-gray-500">🔗</span>
+                      <a 
+                          href={source.uri} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-blue-600 dark:text-blue-400 hover:underline truncate"
+                          title={source.title || source.uri}
+                      >
+                          {source.title || source.uri}
+                      </a>
+                    </li>
+                  )
+                ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 
-import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { Recipe } from '../types';
+import { GoogleGenAI, Type } from "@google/genai";
+import { Recipe, Source } from '../types';
 
 if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable not set");
@@ -8,52 +8,60 @@ if (!process.env.API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const recipeSchema = {
-  type: Type.OBJECT,
-  properties: {
-    recipeName: {
-      type: Type.STRING,
-      description: "The name of the recipe.",
-    },
-    description: {
-      type: Type.STRING,
-      description: "A short, enticing description of the dish.",
-    },
-    ingredients: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.STRING,
-      },
-      description: "A list of all ingredients required for the recipe.",
-    },
-    instructions: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.STRING,
-      },
-      description: "Step-by-step instructions on how to prepare the dish.",
-    },
-    cookingTime: {
-        type: Type.STRING,
-        description: "Estimated total cooking time, e.g., 'Approx. 45 minutes'.",
-    },
-    chefTips: {
-        type: Type.ARRAY,
-        items: {
-            type: Type.STRING,
-        },
-        description: "A list of 2-3 helpful tips, variations, or serving suggestions for the recipe."
+const parseRecipeText = (text: string): Partial<Recipe> => {
+    const recipe: Partial<Recipe> = {};
+    const lines = text.split('\n');
+    let currentSection: keyof Recipe | null = null;
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.startsWith('## RECIPE NAME')) {
+            recipe.recipeName = trimmedLine.replace('## RECIPE NAME', '').trim();
+            currentSection = null;
+        } else if (trimmedLine.startsWith('## DESCRIPTION')) {
+            recipe.description = trimmedLine.replace('## DESCRIPTION', '').trim();
+            currentSection = null;
+        } else if (trimmedLine.startsWith('## COOKING TIME')) {
+            recipe.cookingTime = trimmedLine.replace('## COOKING TIME', '').trim();
+            currentSection = null;
+        } else if (trimmedLine.startsWith('## INGREDIENTS')) {
+            currentSection = 'ingredients';
+            recipe.ingredients = [];
+        } else if (trimmedLine.startsWith('## INSTRUCTIONS')) {
+            currentSection = 'instructions';
+            recipe.instructions = [];
+        } else if (trimmedLine.startsWith('## CHEF\'S TIPS')) {
+            currentSection = 'chefTips';
+            recipe.chefTips = [];
+        } else if (currentSection && trimmedLine) {
+            const cleanLine = trimmedLine.replace(/^\s*[\*\-]\s*|^\s*\d+\.\s*/, '');
+            if (recipe[currentSection]) {
+                (recipe[currentSection] as string[]).push(cleanLine);
+            }
+        }
     }
-  },
-  required: ["recipeName", "description", "ingredients", "instructions", "cookingTime", "chefTips"],
-};
+    return recipe;
+}
+
 
 export const generateRecipe = async (
   ingredients: string,
   imageBase64?: string,
   imageMimeType?: string
 ): Promise<Recipe> => {
-  const textPrompt = `You are a creative chef. Based on the following ingredients (from text and/or an image), create a delicious and easy-to-follow recipe. The user has provided: ${ingredients || 'no text input'}. Analyze the image if provided. Please provide a recipe with a name, a short description, a list of all necessary ingredients (including the ones provided and any staples like oil, salt, pepper), clear, step-by-step instructions, the estimated cooking time, and a couple of helpful chef's tips.`;
+  const textPrompt = `You are a helpful recipe assistant. Using the latest information from the web, find the best and most popular recipe based on the following ingredients (from text and/or an image): ${ingredients || 'no text input'}. Analyze the image if provided.
+
+Please structure your response with the following sections, each on a new line and exactly as written:
+## RECIPE NAME
+## DESCRIPTION
+## COOKING TIME
+## INGREDIENTS
+(as a bulleted list starting with *)
+## INSTRUCTIONS
+(as a numbered list starting with 1.)
+## CHEF'S TIPS
+(as a bulleted list starting with *)
+`;
 
   const contents = [];
   if (imageBase64 && imageMimeType) {
@@ -71,23 +79,29 @@ export const generateRecipe = async (
       model: "gemini-2.5-flash",
       contents: { parts: contents },
       config: {
-        responseMimeType: "application/json",
-        responseSchema: recipeSchema,
+        tools: [{googleSearch: {}}],
       },
     });
 
-    const jsonText = response.text.trim();
-    const recipeData = JSON.parse(jsonText);
+    const text = response.text;
+    const recipeData = parseRecipeText(text);
     
-    // Basic validation
+    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
+    const sources: Source[] = groundingChunks
+        .map(chunk => chunk.web)
+        .filter((web): web is Source => !!web);
+
+    recipeData.sources = sources;
+
     if (
       !recipeData.recipeName || 
       !recipeData.description || 
-      !Array.isArray(recipeData.ingredients) || 
-      !Array.isArray(recipeData.instructions) ||
+      !recipeData.ingredients?.length || 
+      !recipeData.instructions?.length ||
       !recipeData.cookingTime ||
-      !Array.isArray(recipeData.chefTips)
+      !recipeData.chefTips?.length
     ) {
+      console.error("Parsed recipe data is incomplete:", recipeData);
       throw new Error("Invalid recipe format received from API.");
     }
 
@@ -96,42 +110,4 @@ export const generateRecipe = async (
     console.error("Error generating recipe:", error);
     throw new Error("Could not generate a recipe from the provided ingredients.");
   }
-};
-
-
-export const generateRecipeImage = async (recipeName: string, description: string): Promise<string> => {
-    const prompt = `A delicious, high-quality, photorealistic image of "${recipeName}". A professionally styled and plated dish. ${description}`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image-preview',
-            contents: {
-                parts: [{ text: prompt }],
-            },
-            config: {
-                responseModalities: [Modality.IMAGE, Modality.TEXT],
-            },
-        });
-
-        let imageUrl = '';
-        if (response.candidates && response.candidates.length > 0) {
-            for (const part of response.candidates[0].content.parts) {
-                if (part.inlineData) {
-                    const base64ImageBytes: string = part.inlineData.data;
-                    imageUrl = `data:${part.inlineData.mimeType};base64,${base64ImageBytes}`;
-                    break; 
-                }
-            }
-        }
-        
-        if (imageUrl) {
-            return imageUrl;
-        } else {
-            console.error("Model response did not contain an image.", response);
-            throw new Error("No image was generated by the model.");
-        }
-    } catch (error) {
-        console.error("Error generating image:", error);
-        throw new Error("Could not generate an image for the recipe.");
-    }
 };

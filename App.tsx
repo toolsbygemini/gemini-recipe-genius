@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { Recipe } from './types';
-import { generateRecipe, generateRecipeImage } from './services/geminiService';
+import { generateRecipe } from './services/geminiService';
 import { RecipeCard } from './components/RecipeCard';
 import { IngredientInput } from './components/IngredientInput';
 import { LoadingSpinner } from './components/LoadingSpinner';
@@ -30,17 +30,10 @@ const App: React.FC = () => {
         uploadedImage?.mimeType
       );
       setRecipe(recipeData);
-      setIsLoading(false); // Stop main spinner, show recipe text
-
-      // Now generate the image
-      const imageUrl = await generateRecipeImage(recipeData.recipeName, recipeData.description);
-      setRecipe(currentRecipe => 
-        currentRecipe ? { ...currentRecipe, imageUrl } : null
-      );
-
     } catch (err) {
       console.error(err);
-      setError('Failed to generate a recipe or image. Please check your input or try again later.');
+      setError('Failed to generate a recipe. The web search might be unavailable or the response could not be understood. Please try again later.');
+    } finally {
       setIsLoading(false);
     }
   }, [ingredients, uploadedImage]);
@@ -79,7 +72,7 @@ const App: React.FC = () => {
           {error && <ErrorDisplay message={error} />}
 
           <div className="mt-10">
-            {isLoading && <LoadingSpinner message="Crafting your custom recipe..." />}
+            {isLoading && <LoadingSpinner message="Searching the web for the latest recipes..." />}
             {recipe && (
               <div className="animate-fade-in">
                 <RecipeCard recipe={recipe} />

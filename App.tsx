@@ -32,7 +32,7 @@ const App: React.FC = () => {
       setRecipe(recipeData);
     } catch (err) {
       console.error(err);
-      setError('Failed to generate a recipe. The web search might be unavailable or the response could not be understood. Please try again later.');
+      setError('Failed to generate a recipe. The model might be busy or the response could not be understood. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +72,7 @@ const App: React.FC = () => {
           {error && <ErrorDisplay message={error} />}
 
           <div className="mt-10">
-            {isLoading && <LoadingSpinner message="Searching the web for the latest recipes..." />}
+            {isLoading && <LoadingSpinner message="Whipping up a delicious recipe..." />}
             {recipe && (
               <div className="animate-fade-in">
                 <RecipeCard recipe={recipe} />

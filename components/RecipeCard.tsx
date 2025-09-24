@@ -5,7 +5,6 @@ import { ClipboardIcon } from './icons/ClipboardIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { ClockIcon } from './icons/ClockIcon';
 import { LightBulbIcon } from './icons/LightBulbIcon';
-import { GlobeIcon } from './icons/GlobeIcon';
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -125,33 +124,6 @@ ${tipsText}
                 ))}
             </ul>
         </div>
-
-        {recipe.sources && recipe.sources.length > 0 && (
-          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-             <h3 className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 pb-2 mb-4 flex items-center gap-3">
-                <GlobeIcon className="w-7 h-7" />
-                Sources from the Web
-            </h3>
-            <ul className="space-y-2 text-sm">
-                {recipe.sources.map((source, index) => (
-                  source.uri && (
-                    <li key={index} className="flex items-center gap-2 truncate">
-                      <span className="text-gray-400 dark:text-gray-500">🔗</span>
-                      <a 
-                          href={source.uri} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="text-blue-600 dark:text-blue-400 hover:underline truncate"
-                          title={source.title || source.uri}
-                      >
-                          {source.title || source.uri}
-                      </a>
-                    </li>
-                  )
-                ))}
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   );
